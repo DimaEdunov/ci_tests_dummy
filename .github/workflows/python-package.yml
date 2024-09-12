@@ -1,0 +1,79 @@
+name: CI DEMO
+run-name: 'Deploy to ${{ inputs.deploy_target }} by @${{ github.actor }}'
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+jobs:
+  Explore-GitHub-Actions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout tested subject repository
+        uses: actions/checkout@v4
+        with:
+          repository: PomVom/ci_test
+          token: ${{ secrets.PAT }}
+          ref: main
+
+      - name: Checkout qa-api-n-load-testing repository
+        uses: actions/checkout@v4
+        with:
+          repository: PomVom/qa-api-n-load-testing
+          path: qa-api-n-load-testing
+          token: ${{ secrets.PAT }}
+          ref: infra/small-fix
+          
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      
+      - name: Install pytest
+        run: |
+          pip install pytest
+          
+      - name: Install dependencies
+        run: |
+          pip install -r qa-api-n-load-testing/requirements.txt
+
+      - name: Set up JDK
+        uses: actions/setup-java@v2
+        with:
+          java-version: '18' 
+          distribution: 'adopt'
+  
+      - name: Generate Allure Reports
+        if: always()
+        run: |
+          ls -R qa-api-n-load-testing
+          echo -----------------------
+          pytest --version
+          python --version
+          echo -----------------------
+          pytest -s -v --rootdir=qa-api-n-load-testing --alluredir=${{ github.workspace }}/allure-results
+
+      - name: Get Branch Prefix
+        if: always()
+        run: |-
+          echo "BRANCH_PREFIX=$(echo ${{ env.BRANCH_NAME }} | cut -d '/' -f1)" >> $GITHUB_ENV
+
+      - name: Allure
+        uses: PavanMudigonda/allure-html-reporter-aws-s3-website@v1.0
+        if: always()
+        with:
+          report_url: http://qa-reports.pomvom.com
+          allure_results: allure-results
+          allure_history: allure-history
+          allure_report: allure-report
+          keep_reports: 5
+        env:
+          AWS_S3_BUCKET: 'qa-reports.pomvom.com'
+          AWS_ACCESS_KEY_ID: ${{ secrets.POMVOM_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.POMVOM_AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: 'eu-west-2'
+          SOURCE_DIR: 'allure-history'
+          DEST_DIR: allure-reports/Main/ci_test/${{ env.GITHUB_RUN_NUMBER }}

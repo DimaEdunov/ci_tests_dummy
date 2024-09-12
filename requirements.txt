@@ -1,0 +1,11 @@
+allure-pytest
+allure-python-commons
+pytest
+pytest-forked
+pytest-html
+pytest-metadata
+pytest-ordering
+pytest-xdist
+requests
+langdetect
+pyautogui
